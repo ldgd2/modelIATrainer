@@ -19,7 +19,13 @@ def get_feature_backbone(backbone_name: str = "resnet34", pretrained: bool = Tru
         model = resnet18(weights=weights)
         in_features = model.fc.in_features
         model.fc = nn.Identity()
-    elif "mobilenet" in name:
+    elif "large" in name:
+        from torchvision.models import mobilenet_v3_large, MobileNet_V3_Large_Weights
+        weights = MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
+        model = mobilenet_v3_large(weights=weights)
+        in_features = model.classifier[0].in_features
+        model.classifier = nn.Identity()
+    elif "small" in name or "mobilenet" in name:
         weights = MobileNet_V3_Small_Weights.DEFAULT if pretrained else None
         model = mobilenet_v3_small(weights=weights)
         in_features = model.classifier[0].in_features

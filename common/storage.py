@@ -45,6 +45,39 @@ class StorageManager:
         time_filepath = os.path.join(self.releases_dir, f"{base_name}_{timestamp}.pt")
         torch.save(state, time_filepath)
 
+        # 3. Exportacion optimizada para telefonos moviles (PyTorch Mobile / TorchScript / Android / iOS)
+        if isinstance(model, torch.nn.Module):
+            try:
+                model_eval = model.cpu().eval()
+                if hasattr(model_eval, "e1") or hasattr(model_eval, "initial"):
+                    dummy = torch.randn(1, 6, 128, 128)
+                elif hasattr(model_eval, "extract_features"):
+                    dummy = (torch.randn(1, 3, 224, 224), torch.randn(1, 3, 224, 224))
+                else:
+                    dummy = torch.randn(1, 3, 224, 224)
+
+                with torch.no_grad():
+                    if isinstance(dummy, tuple):
+                        traced = torch.jit.trace(model_eval, dummy)
+                    else:
+                        traced = torch.jit.trace(model_eval, dummy)
+
+                    try:
+                        from torch.utils.mobile_optimizer import optimize_for_mobile
+                        mobile_opt = optimize_for_mobile(traced)
+                        mobile_path = os.path.join(self.releases_dir, f"{base_name}_mobile.ptl")
+                        if hasattr(mobile_opt, "_save_for_lite_interpreter"):
+                            mobile_opt._save_for_lite_interpreter(mobile_path)
+                        else:
+                            torch.jit.save(mobile_opt, mobile_path)
+                        print(f"[*] MODELO MOVIL (Lite Interpreter Android/iOS): {mobile_path}")
+                    except Exception:
+                        traced_path = os.path.join(self.releases_dir, f"{base_name}_traced.pt")
+                        torch.jit.save(traced, traced_path)
+                        print(f"[*] MODELO TORCHSCRIPT PARA MOVIL: {traced_path}")
+            except Exception:
+                pass
+
         print(f"[*] RELEASE FINAL GENERADO: {std_filepath}")
 
 def save_checkpoint(
