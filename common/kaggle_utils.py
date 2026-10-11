@@ -9,8 +9,9 @@ DEFAULT_KAGGLE_TOKEN = os.environ.get("KAGGLE_API_TOKEN", "")
 
 # Catalogo oficial de datasets de BellAI
 CATALOGO_DATASETS = {
-    # 1. Armario Digital (Dataset de prendas y categorias publico libre)
-    "deepfashion2": "agrigorev/clothing-dataset-full",
+    # 1. Armario Digital (DeepFashion oficial en Kaggle)
+    "deepfashion2": "khyeh0719/deepfashion",
+    "deepfashion": "khyeh0719/deepfashion",
 
     # 2. Motor de Recomendacion
     "polyvore": "Re-PolyVore",

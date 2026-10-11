@@ -36,7 +36,8 @@ def parse_args():
     parser.add_argument("--link_val", type=str, default="", help="Enlace wget para val.zip")
     parser.add_argument("--link_test", type=str, default="", help="Enlace wget para test.zip")
 
-    parser.add_argument("--download_data", action="store_true", help="Descargar dataset DeepFashion2 via kagglehub")
+    parser.add_argument("--download_data", action="store_true", help="Descargar dataset DeepFashion via kagglehub")
+    parser.add_argument("--kaggle_slug", type=str, default="khyeh0719/deepfashion", help="Slug de Kaggle para DeepFashion")
 
     # Rutas locales y restauracion
     parser.add_argument("--dataset", type=str, default="", help="Ruta local si ya existe dataset")
@@ -58,8 +59,9 @@ def main():
         data_dir = dataset_paths.get("train", os.path.join(args.temp_path, "dataset", "train"))
     elif args.download_data:
         from common.kaggle_utils import descargar_con_kagglehub
-        logger.info("Descargando dataset DeepFashion2 via kagglehub...")
-        data_dir = descargar_con_kagglehub("deepfashion2")
+        slug_to_download = args.kaggle_slug or "khyeh0719/deepfashion"
+        logger.info(f"Descargando dataset DeepFashion via kagglehub ({slug_to_download})...")
+        data_dir = descargar_con_kagglehub(slug_to_download)
         if not data_dir:
             data_dir = os.path.join(args.temp_path, "dataset", "train")
     elif args.dataset:
