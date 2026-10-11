@@ -63,7 +63,7 @@ class ArmarioTrainer:
     def train_epoch(self, epoch: int) -> float:
         self.model.train()
         total_loss, correct, total = 0.0, 0, 0
-        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch}/{self.epochs} [Train]", leave=False)
+        pbar = tqdm(self.train_loader, desc=f"Epoca {epoch:02d}/{self.epochs:02d} [Entrenamiento]", leave=True, ncols=100)
 
         for images, labels in pbar:
             images, labels = images.to(self.device), labels.to(self.device)
@@ -79,7 +79,10 @@ class ArmarioTrainer:
             correct += predicted.eq(labels).sum().item()
             total += labels.size(0)
 
-            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+            pbar.set_postfix({
+                "loss": f"{loss.item():.4f}",
+                "acc": f"{(correct / max(total, 1)) * 100:.1f}%"
+            })
 
         return total_loss / max(total, 1), (correct / max(total, 1)) * 100.0
 

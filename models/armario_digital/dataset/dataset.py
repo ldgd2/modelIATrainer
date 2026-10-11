@@ -62,14 +62,17 @@ def build_dataloaders(
             val_dataset.dataset.transform = val_transform
             n_classes = detected_classes
         except Exception as e:
-            logger.warning(f"[WARNING] Could not load images from {data_dir} ({e}). Falling back to dummy dataset.")
-            train_dataset = SyntheticArmarioDataset(60, num_classes, img_size)
-            val_dataset = SyntheticArmarioDataset(20, num_classes, img_size)
+            logger.warning(f"[AVISO] No se pudieron cargar imagenes desde {data_dir} ({e}).")
+            logger.warning("[INFO] Generando lote de simulacion sintetica para verificar arquitectura y entrenamiento...")
+            train_dataset = SyntheticArmarioDataset(320, num_classes, img_size)
+            val_dataset = SyntheticArmarioDataset(80, num_classes, img_size)
             n_classes = num_classes
     else:
-        logger.warning(f"[WARNING] No dataset folders found in '{data_dir}'. Using synthetic data for verification run.")
-        train_dataset = SyntheticArmarioDataset(60, num_classes, img_size)
-        val_dataset = SyntheticArmarioDataset(20, num_classes, img_size)
+        logger.warning(f"[AVISO] No se encontraron carpetas de imagenes en '{data_dir}'.")
+        logger.warning("[INFO] Para entrenar con DeepFashion2 real, proporciona los enlaces (--link_train) o sube el dataset.")
+        logger.warning("[INFO] Iniciando con lote de prueba de 400 muestras sinteticas para verificar arquitectura, metricas y guardado en Drive...")
+        train_dataset = SyntheticArmarioDataset(320, num_classes, img_size)
+        val_dataset = SyntheticArmarioDataset(80, num_classes, img_size)
         n_classes = num_classes
 
     train_loader = DataLoader(

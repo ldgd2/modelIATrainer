@@ -85,24 +85,34 @@ def main():
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
+    from tqdm.auto import tqdm
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     criterion = nn.MSELoss() if args.task in ["morfologia", "colorimetria"] else nn.BCELoss()
+    batches_per_epoch = 25
 
-    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device}...")
+    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device} ({batches_per_epoch} batches por epoca)...")
     for epoch in range(1, args.epochs + 1):
         model.train()
-        dummy_in = torch.randn(args.batch_size, 3, 224, 224 if args.task != "capilar" else 64).to(device)
-        dummy_target = torch.randn(args.batch_size, 4 if args.task == "colorimetria" else (34 if args.task == "morfologia" else 1)).to(device)
-        if args.task == "capilar":
-            dummy_target = torch.randint(0, 2, (args.batch_size, 1, 64, 64)).float().to(device)
+        epoch_loss = 0.0
+        pbar = tqdm(range(batches_per_epoch), desc=f"Epoca {epoch:02d}/{args.epochs:02d} [{args.task}]", leave=True, ncols=100)
 
-        optimizer.zero_grad()
-        out = model(dummy_in)
-        loss = criterion(out, dummy_target)
-        loss.backward()
-        optimizer.step()
+        for _ in pbar:
+            dummy_in = torch.randn(args.batch_size, 3, 224, 224 if args.task != "capilar" else 64).to(device)
+            dummy_target = torch.randn(args.batch_size, 4 if args.task == "colorimetria" else (34 if args.task == "morfologia" else 1)).to(device)
+            if args.task == "capilar":
+                dummy_target = torch.randint(0, 2, (args.batch_size, 1, 64, 64)).float().to(device)
 
-        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] | Loss: {loss.item():.4f}")
+            optimizer.zero_grad()
+            out = model(dummy_in)
+            loss = criterion(out, dummy_target)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+        avg_loss = epoch_loss / batches_per_epoch
+        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] completada | Loss promedio: {avg_loss:.4f}")
 
         if epoch % args.save_every == 0:
             ckpt_name = f"{args.task}_epoch_{epoch}.pt"

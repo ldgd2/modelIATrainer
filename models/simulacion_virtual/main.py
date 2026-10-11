@@ -72,22 +72,32 @@ def main():
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
+    from tqdm.auto import tqdm
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     criterion = nn.L1Loss()
+    batches_per_epoch = 20
 
-    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device}...")
+    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device} ({batches_per_epoch} batches por epoca)...")
     for epoch in range(1, args.epochs + 1):
         model.train()
-        dummy_in = torch.randn(args.batch_size, 6, 128, 128).to(device)
-        dummy_target = torch.randn(args.batch_size, 3, 128, 128).to(device)
+        epoch_loss = 0.0
+        pbar = tqdm(range(batches_per_epoch), desc=f"Epoca {epoch:02d}/{args.epochs:02d} [{args.task}]", leave=True, ncols=100)
 
-        optimizer.zero_grad()
-        out = model(dummy_in)
-        loss = criterion(out, dummy_target)
-        loss.backward()
-        optimizer.step()
+        for _ in pbar:
+            dummy_in = torch.randn(args.batch_size, 6, 128, 128).to(device)
+            dummy_target = torch.randn(args.batch_size, 3, 128, 128).to(device)
 
-        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] | L1 Loss: {loss.item():.4f}")
+            optimizer.zero_grad()
+            out = model(dummy_in)
+            loss = criterion(out, dummy_target)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+        avg_loss = epoch_loss / batches_per_epoch
+        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] completada | Loss promedio: {avg_loss:.4f}")
 
         if epoch % args.save_every == 0:
             ckpt_name = f"{args.task}_epoch_{epoch}.pt"

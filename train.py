@@ -31,15 +31,25 @@ def main():
     # Extraer el argumento --module y pasar el resto al script del modulo
     args, rest_args = parser.parse_known_args()
 
-    module_script = os.path.join("models", args.module, "main.py")
-    if not os.path.exists(module_script):
-        print(f"[ERROR] Script no encontrado: {module_script}")
-        sys.exit(1)
+    module_name = f"models.{args.module}.main"
+    sys.argv = [os.path.join("models", args.module, "main.py")] + rest_args
 
-    cmd = [sys.executable, module_script] + rest_args
-    print(f"[*] Ejecutando: {' '.join(cmd)}")
-    result = subprocess.run(cmd)
-    sys.exit(result.returncode)
+    print(f"[*] Lanzando modulo: {args.module}")
+    print(f"[*] Parametros: {' '.join(rest_args) if rest_args else 'Valores por defecto'}\n")
+
+    import importlib
+    try:
+        mod = importlib.import_module(module_name)
+        if hasattr(mod, "main"):
+            mod.main()
+        else:
+            print(f"[ERROR] El modulo {module_name} no tiene funcion main().")
+            sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Fallo en la ejecucion del modulo {args.module}: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

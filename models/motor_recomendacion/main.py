@@ -76,23 +76,33 @@ def main():
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
+    from tqdm.auto import tqdm
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     criterion = nn.BCELoss()
+    batches_per_epoch = 20
 
-    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device}...")
+    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device} ({batches_per_epoch} batches por epoca)...")
     for epoch in range(1, args.epochs + 1):
         model.train()
-        dummy_a = torch.randn(args.batch_size, 3, 224, 224).to(device)
-        dummy_b = torch.randn(args.batch_size, 3, 224, 224).to(device)
-        dummy_target = torch.randint(0, 2, (args.batch_size,)).float().to(device)
+        epoch_loss = 0.0
+        pbar = tqdm(range(batches_per_epoch), desc=f"Epoca {epoch:02d}/{args.epochs:02d} [PolyVore Recommender]", leave=True, ncols=100)
 
-        optimizer.zero_grad()
-        score = model(dummy_a, dummy_b)
-        loss = criterion(score, dummy_target)
-        loss.backward()
-        optimizer.step()
+        for _ in pbar:
+            dummy_a = torch.randn(args.batch_size, 3, 224, 224).to(device)
+            dummy_b = torch.randn(args.batch_size, 3, 224, 224).to(device)
+            dummy_target = torch.randint(0, 2, (args.batch_size,)).float().to(device)
 
-        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] | Compatibility BCE Loss: {loss.item():.4f}")
+            optimizer.zero_grad()
+            score = model(dummy_a, dummy_b)
+            loss = criterion(score, dummy_target)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+        avg_loss = epoch_loss / batches_per_epoch
+        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] completada | Loss promedio: {avg_loss:.4f}")
 
         if epoch % args.save_every == 0:
             ckpt_name = f"recommender_epoch_{epoch}.pt"
