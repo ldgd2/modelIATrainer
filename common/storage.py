@@ -78,6 +78,33 @@ class StorageManager:
             except Exception:
                 pass
 
+        # 4. Exportacion ONNX universal para React Native (onnxruntime-react-native)
+        if isinstance(model, torch.nn.Module):
+            try:
+                model_eval = model.cpu().eval()
+                if hasattr(model_eval, "e1") or hasattr(model_eval, "initial"):
+                    dummy_onnx = torch.randn(1, 6, 128, 128)
+                elif hasattr(model_eval, "extract_features"):
+                    dummy_onnx = (torch.randn(1, 3, 224, 224), torch.randn(1, 3, 224, 224))
+                else:
+                    dummy_onnx = torch.randn(1, 3, 224, 224)
+
+                onnx_path = os.path.join(self.releases_dir, f"{base_name}.onnx")
+                with torch.no_grad():
+                    torch.onnx.export(
+                        model_eval,
+                        dummy_onnx,
+                        onnx_path,
+                        export_params=True,
+                        opset_version=14,
+                        do_constant_folding=True,
+                        input_names=['input'] if not isinstance(dummy_onnx, tuple) else ['item_a', 'item_b'],
+                        output_names=['output']
+                    )
+                print(f"[*] MODELO ONNX PARA REACT NATIVE (onnxruntime-react-native): {onnx_path}")
+            except Exception:
+                pass
+
         print(f"[*] RELEASE FINAL GENERADO: {std_filepath}")
 
 def save_checkpoint(
