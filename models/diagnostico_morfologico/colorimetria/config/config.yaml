@@ -1,0 +1,24 @@
+# Configuration for 'colorimetria' (Facial / Skin Undertone Seasonal Color Analysis)
+model_name: "colorimetria"
+version: "1.0.0"
+
+# Dataset settings
+dataset_path: "data/colorimetria"
+gdown_id: "" # Optional: Google Drive File ID to auto-download face dataset
+num_classes: 4 # 4 main palettes: Invierno, Verano, Otoño, Primavera
+img_size: 224
+num_workers: 2
+
+# Training Hyperparameters
+epochs: 30
+batch_size: 32
+learning_rate: 0.0002
+weight_decay: 0.0005
+val_split: 0.15
+device: "auto"
+
+# Checkpoints and Output
+output_dir: "checkpoints/colorimetria"
+drive_backup_dir: "/content/drive/MyDrive/BellAI_Checkpoints/colorimetria"
+save_best_only: true
+early_stopping_patience: 8

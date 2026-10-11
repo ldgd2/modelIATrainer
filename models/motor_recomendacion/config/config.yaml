@@ -1,0 +1,20 @@
+# Configuracion para motor_recomendacion (Compatibilidad de Outfits PolyVore)
+model_name: "motor_recomendacion"
+version: "1.0.0"
+
+# Rutas y Enlaces
+dataset_path: "data/polyvore"
+link_polyvore: "https://hkaidlab-my.sharepoint.com/personal/xingxingzou_aidlab_hk/_layouts/15/download.aspx?SourceUrl=%2Fpersonal%2Fxingxingzou_aidlab_hk%2FDocuments%2FAiDLab%20-%20fAshIon%20TEAM%20-%20DATA%2FRe-PolyVore.zip"
+drive_path: "/content/drive/MyDrive/software/ModeloBellaIA/motor_recomendacion"
+temp_path: "/content/temp_recomendacion"
+
+# Hiperparametros del modelo
+embedding_dim: 128
+img_size: 224
+epochs: 15
+save_every: 2
+batch_size: 32
+learning_rate: 0.0002
+weight_decay: 0.0001
+margin: 0.3
+device: "auto"

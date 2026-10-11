@@ -1,0 +1,16 @@
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data & Utilities
+numpy>=1.24.0
+pillow>=9.5.0
+opencv-python-headless>=4.7.0
+tqdm>=4.65.0
+pyyaml>=6.0
+
+# Dataset Downloaders
+gdown>=4.7.1
+requests>=2.31.0
+kaggle>=1.6.0
+kagglehub>=0.2.0

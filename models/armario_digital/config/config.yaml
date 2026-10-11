@@ -1,0 +1,24 @@
+# Configuration for 'armario' (Garment Detection & Classification)
+model_name: "armario"
+version: "1.0.0"
+
+# Dataset settings
+dataset_path: "data/armario"
+gdown_id: "" # Optional: Google Drive File ID to auto-download dataset
+num_classes: 10 # e.g.: Camisas, Pantalones, Zapatos, Vestidos, etc.
+img_size: 224
+num_workers: 2
+
+# Training Hyperparameters
+epochs: 25
+batch_size: 16
+learning_rate: 0.0003
+weight_decay: 0.0001
+val_split: 0.2
+device: "auto" # "cuda", "cpu", or "auto"
+
+# Checkpoints and Output
+output_dir: "checkpoints/armario"
+drive_backup_dir: "/content/drive/MyDrive/BellAI_Checkpoints/armario" # Colab Drive sync
+save_best_only: true
+early_stopping_patience: 7
