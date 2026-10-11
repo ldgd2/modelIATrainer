@@ -106,8 +106,14 @@ def main():
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
+    total_epochs = args.epochs
+    if start_epoch > total_epochs:
+        logger.info(f"[*] El checkpoint ya alcanzo la epoca {start_epoch - 1}. Sumando {args.epochs} epocas adicionales al entrenamiento.")
+        total_epochs = (start_epoch - 1) + args.epochs
+        logger.info(f"[*] Nueva meta de entrenamiento: Epoca {start_epoch} hasta {total_epochs}")
+
     config = {
-        "epochs": args.epochs,
+        "epochs": total_epochs,
         "start_epoch": start_epoch,
         "learning_rate": args.learning_rate,
         "output_dir": os.path.join(args.drive_path, "checkpoints"),
