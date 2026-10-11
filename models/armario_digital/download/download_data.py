@@ -26,6 +26,12 @@ def preparar_dataset(links: Dict[str, str], temp_path: str, password: Optional[s
             zip_path = os.path.join(zips_dir, f"{split_name}.zip")
             extract_path = os.path.join(data_dir, split_name)
 
+            # Control de cache: si ya esta descomprimido, no volver a descargar
+            if os.path.exists(extract_path) and any(os.scandir(extract_path)):
+                print(f"[*] Dataset '{split_name}' ya existe en disco: {extract_path}. Omitiendo descarga.")
+                rutas_extraidas[split_name] = extract_path
+                continue
+
             # 1. Descarga interactiva con barra
             exito = descargar_con_barra(url, zip_path, descripcion=f"Descarga {split_name}")
             if not exito:

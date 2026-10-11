@@ -23,13 +23,19 @@ except ImportError:
         def set_postfix(self, *args, **kwargs):
             pass
 
-def descargar_con_barra(url: str, destino: str, descripcion: str = "Descarga") -> bool:
+def descargar_con_barra(url: str, destino: str, descripcion: str = "Descarga", forzar: bool = False) -> bool:
     """
-    Descarga un archivo mostrando una barra de progreso interactiva:
-    Porcentaje, MB descargados / totales, velocidad y tiempo restante estimado.
+    Descarga un archivo mostrando una barra de progreso interactiva.
+    Si el archivo ya existe y es valido, omite la descarga automaticamente.
     """
     os.makedirs(os.path.dirname(os.path.abspath(destino)), exist_ok=True)
     nombre_archivo = os.path.basename(destino)
+
+    # Control de existencia previa: evitar descargas redundantes
+    if not forzar and os.path.exists(destino) and os.path.getsize(destino) > 1024:
+        mb = os.path.getsize(destino) / (1024 * 1024)
+        print(f"[*] Archivo ya existente en disco: {nombre_archivo} ({mb:.2f} MB). Omitiendo descarga.")
+        return True
 
     try:
         import requests
