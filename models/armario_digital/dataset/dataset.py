@@ -40,6 +40,15 @@ def build_dataloaders(
     """
     train_transform, val_transform = get_armario_transforms(img_size)
 
+    # Check for nested subfolders like images, train, etc.
+    if os.path.exists(data_dir):
+        for sub in ["images", "clothing-dataset-full", "train"]:
+            candidate = os.path.join(data_dir, sub)
+            if os.path.exists(candidate) and os.path.isdir(candidate):
+                if any(os.path.isdir(os.path.join(candidate, d)) for d in os.listdir(candidate)):
+                    data_dir = candidate
+                    break
+
     # Check if folder has valid class subdirectories with images
     has_image_folders = (
         os.path.exists(data_dir) and

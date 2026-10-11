@@ -9,8 +9,8 @@ DEFAULT_KAGGLE_TOKEN = os.environ.get("KAGGLE_API_TOKEN", "")
 
 # Catalogo oficial de datasets de BellAI
 CATALOGO_DATASETS = {
-    # 1. Armario Digital
-    "deepfashion2": "nadyapavlova/deepfashion2-original-with-dataframes",
+    # 1. Armario Digital (Dataset de prendas y categorias publico libre)
+    "deepfashion2": "agrigorev/clothing-dataset-full",
 
     # 2. Motor de Recomendacion
     "polyvore": "Re-PolyVore",
@@ -85,6 +85,14 @@ def descargar_con_kagglehub(slug_o_alias: str) -> str:
         return kagglehub.dataset_download(slug)
     except Exception as e:
         print(f"[ERROR] Error al descargar con kagglehub ({e}).")
+        if "deepfashion" in slug.lower() or "nadyapavlova" in slug.lower():
+            fallback_slug = "agrigorev/clothing-dataset-full"
+            print(f"[*] Intentando con dataset publico abierto ({fallback_slug})...")
+            try:
+                import kagglehub
+                return kagglehub.dataset_download(fallback_slug)
+            except Exception as e2:
+                print(f"[ERROR] Error en fallback ({e2}).")
         return ""
 
 def descargar_dataset_kaggle(slug: str, dest_dir: str, token: Optional[str] = None) -> str:
