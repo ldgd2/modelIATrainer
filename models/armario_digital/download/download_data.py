@@ -4,40 +4,14 @@ import zipfile
 from typing import Dict, Optional
 from common.logger import setup_logger
 
+from common.download_utils import descargar_con_barra, descomprimir_con_barra
+
 logger = setup_logger("Armario-Downloader")
-
-def ejecutar_comando(comando: str):
-    """Ejecuta un comando en shell verificando errores."""
-    subprocess.run(comando, shell=True, check=True)
-
-def descomprimir_archivo(zip_path: str, extract_path: str, password: Optional[str] = "2019Deepfashion2**"):
-    """
-    Descomprime un archivo zip usando unzip con password si esta disponible,
-    o con fallback a zipfile nativo de Python.
-    """
-    os.makedirs(extract_path, exist_ok=True)
-    pwd_bytes = password.encode("utf-8") if password else None
-
-    # Intento 1: comando unzip del sistema (ideal para Linux / Google Colab)
-    try:
-        if password:
-            cmd = f'unzip -q -P "{password}" "{zip_path}" -d "{extract_path}"'
-        else:
-            cmd = f'unzip -q "{zip_path}" -d "{extract_path}"'
-        ejecutar_comando(cmd)
-        return
-    except Exception as e:
-        print(f"[INFO] Comando unzip no disponible o fallo ({e}). Usando motor nativo zipfile...")
-
-    # Intento 2: zipfile nativo de Python
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(path=extract_path, pwd=pwd_bytes)
 
 def preparar_dataset(links: Dict[str, str], temp_path: str, password: Optional[str] = "2019Deepfashion2**") -> Dict[str, str]:
     """
-    Descarga y descomprime los datasets en el almacenamiento efimero.
-    Maneja el password para DeepFashion2 (2019Deepfashion2**).
-    Retorna un diccionario con las rutas locales de los datos extraidos.
+    Descarga y descomprime los datasets en el almacenamiento efimero mostrando
+    barra de progreso interactiva (porcentaje, MB descargados/totales y tiempo).
     """
     zips_dir = os.path.join(temp_path, "zips")
     data_dir = os.path.join(temp_path, "dataset")
@@ -52,17 +26,15 @@ def preparar_dataset(links: Dict[str, str], temp_path: str, password: Optional[s
             zip_path = os.path.join(zips_dir, f"{split_name}.zip")
             extract_path = os.path.join(data_dir, split_name)
 
-            print(f"[*] Descargando {split_name}...")
-            # Uso de comillas dobles para evitar que bash rompa la URL por el caracter '&'
-            try:
-                ejecutar_comando(f'wget -q -O "{zip_path}" "{url}"')
-            except Exception as e:
-                print(f"[ERROR] Fallo al descargar con wget ({e}). Verifique enlace o conexion.")
+            # 1. Descarga interactiva con barra
+            exito = descargar_con_barra(url, zip_path, descripcion=f"Descarga {split_name}")
+            if not exito:
+                print(f"[ERROR] Fallo al descargar {split_name}. Verifique enlace.")
                 continue
 
-            print(f"[*] Descomprimiendo {split_name} (con password si aplica)...")
+            # 2. Descompresion interactiva con barra
             try:
-                descomprimir_archivo(zip_path, extract_path, password=password)
+                descomprimir_con_barra(zip_path, extract_path, password=password, descripcion=f"Extraccion {split_name}")
             finally:
                 if os.path.exists(zip_path):
                     try:

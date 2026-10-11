@@ -5,6 +5,8 @@ from typing import Optional
 from common.logger import setup_logger
 from common.kaggle_utils import descargar_con_kagglehub, descargar_dataset_kaggle
 
+from common.download_utils import descargar_con_barra, descomprimir_con_barra
+
 logger = setup_logger("Diagnostico-Downloader")
 
 SLUGS_DATASETS = {
@@ -13,32 +15,18 @@ SLUGS_DATASETS = {
     "capilar": "ipythonx/celebamaskhq"
 }
 
-def ejecutar_comando(comando: str):
-    subprocess.run(comando, shell=True, check=True)
-
 def descargar_directo(url: str, dest_dir: str, nombre_zip: str = "dataset.zip") -> str:
-    """Descarga un archivo zip desde una URL y lo descomprime."""
+    """Descarga un archivo zip desde una URL y lo descomprime mostrando barra de progreso."""
     os.makedirs(dest_dir, exist_ok=True)
     zip_path = os.path.join(dest_dir, nombre_zip)
 
-    print(f"[*] Descargando desde: {url}...")
-    try:
-        ejecutar_comando(f'wget -q -O "{zip_path}" "{url}"')
-    except Exception:
-        ejecutar_comando(f'curl -s -L -o "{zip_path}" "{url}"')
-
-    if os.path.exists(zip_path) and zipfile.is_zipfile(zip_path):
-        print(f"[*] Descomprimiendo en {dest_dir}...")
-        try:
-            ejecutar_comando(f'unzip -q "{zip_path}" -d "{dest_dir}"')
-        except Exception:
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(dest_dir)
+    exito = descargar_con_barra(url, zip_path, descripcion=f"Descarga {nombre_zip}")
+    if exito and os.path.exists(zip_path) and zipfile.is_zipfile(zip_path):
+        descomprimir_con_barra(zip_path, dest_dir, descripcion=f"Extraccion {nombre_zip}")
         try:
             os.remove(zip_path)
         except Exception:
             pass
-        print("[*] Archivo descomprimido exitosamente.")
 
     return dest_dir
 
