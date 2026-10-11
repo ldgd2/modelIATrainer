@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--drive_path", type=str, default=DEFAULT_DRIVE_DIR, help="Ruta en Google Drive")
     parser.add_argument("--temp_path", type=str, default=DEFAULT_TEMP_DIR, help="Ruta temporal local")
     parser.add_argument("--link_polyvore", type=str, default=DEFAULT_POLYVORE_URL, help="URL de Re-PolyVore.zip")
+    parser.add_argument("--backbone", type=str, default="resnet34", choices=["resnet34", "resnet50", "resnet18"], help="Arquitectura backbone")
     parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar o 'auto'")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     return parser.parse_args()
@@ -54,7 +55,8 @@ def main():
     )
 
     # 3. Modelo
-    model = StyleRecommenderNet(embedding_dim=args.embedding_dim)
+    logger.info(f"[*] Construyendo StyleRecommenderNet con backbone: {args.backbone}...")
+    model = StyleRecommenderNet(embedding_dim=args.embedding_dim, backbone_name=args.backbone)
 
     # 4. Checkpoint y recuperacion automatica de epoca
     start_epoch = 1

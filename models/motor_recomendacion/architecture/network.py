@@ -1,22 +1,36 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.models import (
+    resnet18, ResNet18_Weights,
+    resnet34, ResNet34_Weights,
+    resnet50, ResNet50_Weights
+)
 
 class StyleRecommenderNet(nn.Module):
     """
     Red neuronal siamesa para calificar compatibilidad estetica entre pares de prendas.
     Proyecta ambas prendas a un espacio latente comun de estilo y calcula similitud coseno.
     """
-    def __init__(self, embedding_dim: int = 128):
+    def __init__(self, embedding_dim: int = 128, backbone_name: str = "resnet34"):
         super().__init__()
-        self.backbone = resnet18(weights=ResNet18_Weights.DEFAULT)
-        in_features = self.backbone.fc.in_features
+        b_name = backbone_name.lower()
+        if "resnet50" in b_name:
+            self.backbone = resnet50(weights=ResNet50_Weights.DEFAULT)
+            in_features = self.backbone.fc.in_features
+        elif "resnet18" in b_name:
+            self.backbone = resnet18(weights=ResNet18_Weights.DEFAULT)
+            in_features = self.backbone.fc.in_features
+        else:
+            self.backbone = resnet34(weights=ResNet34_Weights.DEFAULT)
+            in_features = self.backbone.fc.in_features
+
         self.backbone.fc = nn.Sequential(
-            nn.Linear(in_features, 256),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(256, embedding_dim)
+            nn.Linear(in_features, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.3),
+            nn.Linear(512, embedding_dim)
         )
 
     def extract_features(self, x):

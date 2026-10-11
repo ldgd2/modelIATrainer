@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("--direct_url", type=str, default="", help="Enlace de descarga directa opcional")
     parser.add_argument("--drive_path", type=str, default=DEFAULT_DRIVE_DIR, help="Ruta en Google Drive")
     parser.add_argument("--temp_path", type=str, default=DEFAULT_TEMP_DIR, help="Ruta temporal local")
+    parser.add_argument("--backbone", type=str, default="resnet34", choices=["resnet34", "resnet50", "resnet18", "mobilenet_v3"], help="Arquitectura backbone")
     parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     return parser.parse_args()
@@ -60,7 +61,8 @@ def main():
     )
 
     # 3. Construccion de arquitectura de red
-    model = build_diagnostico_model(args.task)
+    logger.info(f"[*] Construyendo modelo para '{args.task}' con backbone: {args.backbone}...")
+    model = build_diagnostico_model(args.task, backbone_name=args.backbone)
 
     # 4. Restauracion y autocomprobacion de checkpoints
     start_epoch = 1
