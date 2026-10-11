@@ -1,0 +1,15 @@
+probador:
+  epochs: 10
+  batch_size: 8
+  learning_rate: 0.0002
+  save_every: 2
+  kaggle_slug: "marquis03/high-resolution-viton-zalando-dataset"
+  release_name: "virtual_tryon_v1"
+
+maquillaje:
+  epochs: 10
+  batch_size: 8
+  learning_rate: 0.0002
+  save_every: 2
+  kaggle_slug: "cyd0806/makeup-transfer-dataset"
+  release_name: "makeup_sim_v1"

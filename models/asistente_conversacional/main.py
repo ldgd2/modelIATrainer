@@ -9,6 +9,7 @@ if REPO_ROOT not in sys.path:
 from common.logger import setup_logger
 from common.storage import StorageManager
 from models.asistente_conversacional.download.download_llm import descargar_modelo_gguf
+from models.asistente_conversacional.trainer.benchmark import evaluar_modelo_local
 
 logger = setup_logger("AsistenteConversacional-Main")
 
@@ -31,8 +32,10 @@ def main():
     storage = StorageManager(base_drive_path=args.drive_path, temp_path=args.temp_path)
     storage.setup_directories()
 
-    descargar_modelo_gguf(repo_id=args.repo_id, filename=args.filename, dest_dir=args.drive_path)
-    logger.info(f"Modelo GGUF listo en: {os.path.join(args.drive_path, args.filename)}")
+    dest_file = descargar_modelo_gguf(repo_id=args.repo_id, filename=args.filename, dest_dir=args.drive_path)
+    if dest_file:
+        evaluar_modelo_local(dest_file)
+        logger.info(f"Modelo GGUF listo en: {dest_file}")
 
 if __name__ == "__main__":
     main()

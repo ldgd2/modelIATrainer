@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 import torch
-import torch.nn as nn
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if REPO_ROOT not in sys.path:
@@ -10,25 +9,23 @@ if REPO_ROOT not in sys.path:
 
 from common.logger import setup_logger
 from common.storage import StorageManager
-from common.kaggle_utils import descargar_con_kagglehub
+from models.simulacion_virtual.download.download_data import ensure_simulacion_dataset
+from models.simulacion_virtual.dataset.dataset import build_simulacion_dataloaders
+from models.simulacion_virtual.architecture.network import build_simulacion_model
+from models.simulacion_virtual.trainer.trainer import SimulacionTrainer
 
 logger = setup_logger("SimulacionVirtual-Main")
 
 DEFAULT_DRIVE_DIR = "/content/drive/MyDrive/Modelos_BellAI/simulacion_virtual"
 DEFAULT_TEMP_DIR = "/content/temp_simulacion"
 
-def build_model():
-    return nn.Sequential(
-        nn.Conv2d(6, 32, kernel_size=3, padding=1),
-        nn.ReLU(),
-        nn.Conv2d(32, 32, kernel_size=3, padding=1),
-        nn.ReLU(),
-        nn.Conv2d(32, 3, kernel_size=3, padding=1),
-        nn.Tanh()
-    )
+RELEASE_NAMES = {
+    "probador": "virtual_tryon_v1",
+    "maquillaje": "makeup_sim_v1"
+}
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BellAI - Simulacion Virtual")
+    parser = argparse.ArgumentParser(description="BellAI - Simulacion Virtual (VITON-HD, MT-Dataset)")
     parser.add_argument("--task", type=str, default="probador", choices=["probador", "maquillaje"], help="Sub-tarea a entrenar")
     parser.add_argument("--epochs", type=int, default=10, help="Numero de epocas")
     parser.add_argument("--save_every", type=int, default=2, help="Frecuencia de checkpoints")
@@ -43,67 +40,60 @@ def parse_args():
 
 def main():
     args = parse_args()
-    logger.info(f"Iniciando Simulacion Virtual (Tarea: {args.task})...")
+    logger.info(f"[*] Iniciando Simulacion Virtual (Tarea: {args.task})...")
 
     storage = StorageManager(base_drive_path=args.drive_path, temp_path=args.temp_path)
     storage.setup_directories()
 
-    slug_map = {
-        "probador": "marquis03/high-resolution-viton-zalando-dataset",
-        "maquillaje": "cyd0806/makeup-transfer-dataset"
-    }
-    release_map = {
-        "probador": "virtual_tryon_v1",
-        "maquillaje": "makeup_sim_v1"
-    }
-
+    # 1. Gestion de datos (Descarga o preparacion)
+    data_dir = os.path.join(args.temp_path, "dataset", args.task)
     if args.download_data:
-        slug = slug_map[args.task]
-        data_path = descargar_con_kagglehub(slug)
-        logger.info(f"Dataset disponible en: {data_path}")
+        data_dir = ensure_simulacion_dataset(args.task, args.temp_path)
 
-    device = torch.device(args.device)
-    model = build_model().to(device)
+    # 2. DataLoaders
+    train_loader, val_loader = build_simulacion_dataloaders(
+        data_dir=data_dir,
+        task=args.task,
+        batch_size=args.batch_size
+    )
 
+    # 3. Modelo
+    model = build_simulacion_model(args.task)
+
+    # 4. Checkpoint
     if args.resume and os.path.exists(args.resume):
         try:
-            model.load_state_dict(torch.load(args.resume, map_location=device))
-            logger.info(f"Pesos restaurados desde: {args.resume}")
+            device = torch.device(args.device)
+            state = torch.load(args.resume, map_location=device)
+            weights = state.get("model_state", state)
+            model.load_state_dict(weights)
+            logger.info(f"Pesos restaurados desde checkpoint: {args.resume}")
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
-    from tqdm.auto import tqdm
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    criterion = nn.L1Loss()
-    batches_per_epoch = 20
+    # 5. Configuracion del entrenador
+    config = {
+        "epochs": args.epochs,
+        "learning_rate": args.learning_rate,
+        "save_every": args.save_every,
+        "output_dir": os.path.join(args.drive_path, "checkpoints"),
+        "drive_backup_dir": args.drive_path,
+        "device": args.device
+    }
 
-    logger.info(f"Iniciando entrenamiento por {args.epochs} epocas en {device} ({batches_per_epoch} batches por epoca)...")
-    for epoch in range(1, args.epochs + 1):
-        model.train()
-        epoch_loss = 0.0
-        pbar = tqdm(range(batches_per_epoch), desc=f"Epoca {epoch:02d}/{args.epochs:02d} [{args.task}]", leave=True, ncols=100)
+    trainer = SimulacionTrainer(
+        model=model,
+        task=args.task,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        config=config
+    )
 
-        for _ in pbar:
-            dummy_in = torch.randn(args.batch_size, 6, 128, 128).to(device)
-            dummy_target = torch.randn(args.batch_size, 3, 128, 128).to(device)
+    # 6. Ejecucion del entrenamiento
+    trainer.fit()
 
-            optimizer.zero_grad()
-            out = model(dummy_in)
-            loss = criterion(out, dummy_target)
-            loss.backward()
-            optimizer.step()
-
-            epoch_loss += loss.item()
-            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-
-        avg_loss = epoch_loss / batches_per_epoch
-        logger.info(f"Epoca [{epoch:02d}/{args.epochs:02d}] completada | Loss promedio: {avg_loss:.4f}")
-
-        if epoch % args.save_every == 0:
-            ckpt_name = f"{args.task}_epoch_{epoch}.pt"
-            storage.save_checkpoint(model, ckpt_name)
-
-    release_name = release_map[args.task]
+    # 7. Release
+    release_name = RELEASE_NAMES.get(args.task, f"{args.task}_v1")
     storage.save_release(model, release_name)
 
 if __name__ == "__main__":

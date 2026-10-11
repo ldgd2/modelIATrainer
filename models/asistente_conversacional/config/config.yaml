@@ -1,0 +1,6 @@
+llm:
+  repo_id: "TheBloke/Llama-2-7B-Chat-GGUF"
+  filename: "bellai_assistant_8b.gguf"
+  context_length: 4096
+  temperature: 0.7
+  release_name: "bellai_assistant_8b.gguf"
