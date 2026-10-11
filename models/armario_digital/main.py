@@ -40,6 +40,7 @@ def parse_args():
     parser.add_argument("--kaggle_slug", type=str, default="khyeh0719/deepfashion", help="Slug de Kaggle para DeepFashion")
 
     # Rutas locales y restauracion
+    parser.add_argument("--backbone", type=str, default="resnet34", choices=["resnet34", "resnet50", "mobilenet_v3_small", "mobilenet_v3_large"], help="Arquitectura backbone")
     parser.add_argument("--dataset", type=str, default="", help="Ruta local si ya existe dataset")
     parser.add_argument("--resume", type=str, default="", help="Ruta a checkpoint para continuar")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
@@ -82,7 +83,8 @@ def main():
     )
 
     device = torch.device(args.device)
-    model = build_model(num_classes=detected_classes, pretrained=True).to(device)
+    logger.info(f"[*] Construyendo modelo Armario con backbone: {args.backbone} ({detected_classes} clases)...")
+    model = build_model(num_classes=detected_classes, pretrained=True, backbone_name=args.backbone).to(device)
 
     # Deteccion y recuperacion inteligente de checkpoints
     start_epoch = 1
