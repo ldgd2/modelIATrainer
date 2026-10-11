@@ -62,20 +62,33 @@ def main():
     # 3. Construccion de arquitectura de red
     model = build_diagnostico_model(args.task)
 
-    # 4. Restauracion de pesos si se especifico
-    if args.resume and os.path.exists(args.resume):
+    # 4. Restauracion y autocomprobacion de checkpoints
+    start_epoch = 1
+    resume_path = args.resume.strip() if args.resume else ""
+
+    if resume_path == "auto" or (resume_path == "" and os.path.exists(os.path.join(args.drive_path, "checkpoints"))):
+        from common.storage import find_latest_checkpoint
+        auto_ckpt, last_ep = find_latest_checkpoint(args.drive_path)
+        if auto_ckpt:
+            resume_path = auto_ckpt
+            logger.info(f"[*] Autodetectado ultimo checkpoint en Drive: {auto_ckpt} (Epoca completada: {last_ep})")
+
+    if resume_path and os.path.exists(resume_path):
         try:
             device = torch.device(args.device)
-            state = torch.load(args.resume, map_location=device)
-            weights = state.get("model_state", state)
+            ckpt_data = torch.load(resume_path, map_location=device)
+            weights = ckpt_data.get("model_state", ckpt_data)
             model.load_state_dict(weights)
-            logger.info(f"Pesos restaurados desde checkpoint: {args.resume}")
+            if isinstance(ckpt_data, dict) and "epoch" in ckpt_data:
+                start_epoch = int(ckpt_data["epoch"]) + 1
+            logger.info(f"[*] Pesos restaurados desde: {resume_path} | Se reanudara a partir de la epoca {start_epoch}")
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
     # 5. Configuracion del entrenador
     config = {
         "epochs": args.epochs,
+        "start_epoch": start_epoch,
         "learning_rate": args.learning_rate,
         "save_every": args.save_every,
         "output_dir": os.path.join(args.drive_path, "checkpoints"),

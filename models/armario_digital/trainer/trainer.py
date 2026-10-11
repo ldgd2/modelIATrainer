@@ -106,16 +106,21 @@ class ArmarioTrainer:
         return val_loss, val_acc
 
     def fit(self):
-        logger.info(f"[TRAIN] Starting training for {self.epochs} epochs...")
+        start_epoch = int(self.config.get("start_epoch", 1))
+        if start_epoch > self.epochs:
+            logger.info(f"[INFO] El modelo ya completo la epoca {start_epoch - 1}. Para continuar entrenando, aumenta --epochs a un numero mayor a {start_epoch - 1}.")
+            return
+
+        logger.info(f"[TRAIN] Iniciando entrenamiento: Epoca {start_epoch:02d} hasta {self.epochs:02d} en {self.device}...")
         os.makedirs(self.output_dir, exist_ok=True)
 
-        for epoch in range(1, self.epochs + 1):
+        for epoch in range(start_epoch, self.epochs + 1):
             train_loss, train_acc = self.train_epoch(epoch)
             val_loss, val_acc = self.validate(epoch)
             self.scheduler.step()
 
             logger.info(
-                f"Epoch {epoch:02d}/{self.epochs:02d} | "
+                f"Epoca {epoch:02d}/{self.epochs:02d} | "
                 f"Train Loss: {train_loss:.4f} - Acc: {train_acc:.2f}% | "
                 f"Val Loss: {val_loss:.4f} - Acc: {val_acc:.2f}%"
             )
@@ -127,7 +132,7 @@ class ArmarioTrainer:
             else:
                 self.patience_counter += 1
 
-            # Save checkpoint
+            # Guardar checkpoint de CADA epoca en disco y sincronizar a Drive
             checkpoint_state = {
                 "epoch": epoch,
                 "model_state": self.model.state_dict(),
@@ -136,11 +141,16 @@ class ArmarioTrainer:
                 "config": self.config
             }
 
+            epoch_filename = f"epoch_{epoch:02d}.pt"
+            epoch_path = os.path.join(self.output_dir, epoch_filename)
             latest_path = os.path.join(self.output_dir, "latest_model.pt")
-            save_checkpoint(checkpoint_state, latest_path, self.drive_dir, is_best=is_best)
+
+            # Respaldar tanto el archivo numerado de la epoca como el puntero al ultimo modelo
+            save_checkpoint(checkpoint_state, epoch_path, self.drive_dir, is_best=is_best)
+            save_checkpoint(checkpoint_state, latest_path, self.drive_dir, is_best=False)
 
             if self.patience_counter >= self.patience:
-                logger.info(f"[STOP] Early stopping triggered at epoch {epoch} (No improvement for {self.patience} epochs).")
+                logger.info(f"[STOP] Early stopping activado en epoca {epoch} (Sin mejora por {self.patience} epocas).")
                 break
 
         logger.info(f"[DONE] Training completed. Best validation accuracy: {self.best_val_acc:.2f}%")

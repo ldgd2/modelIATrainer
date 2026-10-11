@@ -8,7 +8,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from common.logger import setup_logger
-from common.storage import StorageManager
+from common.storage import StorageManager, find_latest_checkpoint
 from models.motor_recomendacion.download.download_data import descargar_y_extraer_polyvore
 from models.motor_recomendacion.dataset.dataset import build_recommender_dataloaders
 from models.motor_recomendacion.architecture.network import StyleRecommenderNet
@@ -26,14 +26,14 @@ DEFAULT_TEMP_DIR = "/content/temp_recomendacion"
 def parse_args():
     parser = argparse.ArgumentParser(description="BellAI - Motor de Recomendacion (PolyVore -> style_recommender_v1.pt)")
     parser.add_argument("--epochs", type=int, default=10, help="Numero de epocas")
-    parser.add_argument("--save_every", type=int, default=2, help="Frecuencia de checkpoints")
+    parser.add_argument("--save_every", type=int, default=1, help="Frecuencia de checkpoints")
     parser.add_argument("--batch_size", type=int, default=32, help="Tamano de batch")
     parser.add_argument("--learning_rate", type=float, default=0.0002, help="Learning rate")
     parser.add_argument("--embedding_dim", type=int, default=128, help="Dimension de embedding")
     parser.add_argument("--drive_path", type=str, default=DEFAULT_DRIVE_DIR, help="Ruta en Google Drive")
     parser.add_argument("--temp_path", type=str, default=DEFAULT_TEMP_DIR, help="Ruta temporal local")
     parser.add_argument("--link_polyvore", type=str, default=DEFAULT_POLYVORE_URL, help="URL de Re-PolyVore.zip")
-    parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar")
+    parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar o 'auto'")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     return parser.parse_args()
 
@@ -56,20 +56,38 @@ def main():
     # 3. Modelo
     model = StyleRecommenderNet(embedding_dim=args.embedding_dim)
 
-    # 4. Checkpoint
-    if args.resume and os.path.exists(args.resume):
+    # 4. Checkpoint y recuperacion automatica de epoca
+    start_epoch = 1
+    resume_path = args.resume
+
+    if resume_path == "auto" or not resume_path:
+        found_ckpt, found_epoch = find_latest_checkpoint(args.drive_path)
+        if found_ckpt:
+            resume_path = found_ckpt
+            start_epoch = found_epoch + 1
+            logger.info(f"[*] Checkpoint detectado automaticamente en Drive: {found_ckpt}")
+            logger.info(f"[*] Continuando entrenamiento desde la epoca {start_epoch} (completadas: {found_epoch})")
+    elif resume_path and os.path.exists(resume_path):
+        import re
+        match = re.search(r"epoch_(\d+)", resume_path)
+        if match:
+            start_epoch = int(match.group(1)) + 1
+            logger.info(f"[*] Checkpoint especificado: {resume_path} -> Continuando desde la epoca {start_epoch}")
+
+    if resume_path and os.path.exists(resume_path):
         try:
             device = torch.device(args.device)
-            state = torch.load(args.resume, map_location=device)
+            state = torch.load(resume_path, map_location=device)
             weights = state.get("model_state", state)
             model.load_state_dict(weights)
-            logger.info(f"Pesos restaurados desde: {args.resume}")
+            logger.info(f"Pesos restaurados desde: {resume_path}")
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
     # 5. Entrenador
     config = {
         "epochs": args.epochs,
+        "start_epoch": start_epoch,
         "learning_rate": args.learning_rate,
         "save_every": args.save_every,
         "output_dir": os.path.join(args.drive_path, "checkpoints"),

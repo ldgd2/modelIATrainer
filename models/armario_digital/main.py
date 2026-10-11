@@ -53,10 +53,15 @@ def main():
     storage = StorageManager(base_drive_path=args.drive_path, temp_path=args.temp_path)
     storage.setup_directories()
 
+    data_dir = os.path.join(args.temp_path, "dataset", "train")
     links = {"train": args.link_train, "val": args.link_val, "test": args.link_test}
-    if any(links.values()):
+
+    # Control de datos: Si el dataset ya existe en disco temporal, omitir descarga
+    if os.path.exists(data_dir) and any(os.scandir(data_dir)):
+        logger.info(f"[*] Dataset ya detectado y listo en disco local: {data_dir}. Omitiendo descarga.")
+    elif any(links.values()):
         dataset_paths = preparar_dataset(links, args.temp_path, password=args.password)
-        data_dir = dataset_paths.get("train", os.path.join(args.temp_path, "dataset", "train"))
+        data_dir = dataset_paths.get("train", data_dir)
     elif args.download_data:
         from common.kaggle_utils import descargar_con_kagglehub
         slug_to_download = args.kaggle_slug or "khyeh0719/deepfashion"
@@ -79,15 +84,31 @@ def main():
     device = torch.device(args.device)
     model = build_model(num_classes=detected_classes, pretrained=True).to(device)
 
-    if args.resume and os.path.exists(args.resume):
+    # Deteccion y recuperacion inteligente de checkpoints
+    start_epoch = 1
+    resume_path = args.resume.strip() if args.resume else ""
+
+    if resume_path == "auto" or (resume_path == "" and os.path.exists(os.path.join(args.drive_path, "checkpoints"))):
+        from common.storage import find_latest_checkpoint
+        auto_ckpt, last_ep = find_latest_checkpoint(args.drive_path)
+        if auto_ckpt:
+            resume_path = auto_ckpt
+            logger.info(f"[*] Autodetectado ultimo checkpoint en Drive: {auto_ckpt} (Epoca completada: {last_ep})")
+
+    if resume_path and os.path.exists(resume_path):
         try:
-            model.load_state_dict(torch.load(args.resume, map_location=device))
-            logger.info(f"Pesos restaurados desde: {args.resume}")
+            ckpt_data = torch.load(resume_path, map_location=device)
+            weights = ckpt_data.get("model_state", ckpt_data)
+            model.load_state_dict(weights)
+            if isinstance(ckpt_data, dict) and "epoch" in ckpt_data:
+                start_epoch = int(ckpt_data["epoch"]) + 1
+            logger.info(f"[*] Pesos restaurados desde: {resume_path} | Se reanudara a partir de la epoca {start_epoch}")
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
     config = {
         "epochs": args.epochs,
+        "start_epoch": start_epoch,
         "learning_rate": args.learning_rate,
         "output_dir": os.path.join(args.drive_path, "checkpoints"),
         "drive_backup_dir": args.drive_path,

@@ -92,10 +92,15 @@ class DiagnosticoTrainer:
         return total_loss / max(total, 1)
 
     def fit(self):
-        logger.info(f"[TRAIN] Iniciando entrenamiento para tarea '{self.task}' por {self.epochs} epocas en {self.device}...")
+        start_epoch = int(self.config.get("start_epoch", 1))
+        if start_epoch > self.epochs:
+            logger.info(f"[INFO] Tarea '{self.task}' ya completo la epoca {start_epoch - 1}. Para continuar, aumenta --epochs a mas de {start_epoch - 1}.")
+            return
+
+        logger.info(f"[TRAIN] Iniciando entrenamiento para '{self.task}': Epoca {start_epoch:02d} hasta {self.epochs:02d} en {self.device}...")
         os.makedirs(self.output_dir, exist_ok=True)
 
-        for epoch in range(1, self.epochs + 1):
+        for epoch in range(start_epoch, self.epochs + 1):
             train_loss = self.train_epoch(epoch)
             val_loss = self.validate()
             self.scheduler.step()
@@ -106,16 +111,17 @@ class DiagnosticoTrainer:
             if is_best:
                 self.best_loss = val_loss
 
-            if epoch % self.save_every == 0 or is_best:
-                checkpoint_state = {
-                    "epoch": epoch,
-                    "task": self.task,
-                    "model_state": self.model.state_dict(),
-                    "optimizer_state": self.optimizer.state_dict(),
-                    "val_loss": val_loss,
-                    "config": self.config
-                }
-                ckpt_filename = f"{self.task}_epoch_{epoch}.pt"
-                save_checkpoint(checkpoint_state, os.path.join(self.output_dir, ckpt_filename), self.drive_dir, is_best=is_best)
+            checkpoint_state = {
+                "epoch": epoch,
+                "task": self.task,
+                "model_state": self.model.state_dict(),
+                "optimizer_state": self.optimizer.state_dict(),
+                "val_loss": val_loss,
+                "config": self.config
+            }
+            ckpt_filename = f"{self.task}_epoch_{epoch:02d}.pt"
+            latest_filename = f"{self.task}_latest.pt"
+            save_checkpoint(checkpoint_state, os.path.join(self.output_dir, ckpt_filename), self.drive_dir, is_best=is_best)
+            save_checkpoint(checkpoint_state, os.path.join(self.output_dir, latest_filename), self.drive_dir, is_best=False)
 
         logger.info(f"[DONE] Entrenamiento finalizado para '{self.task}'. Mejor Val Loss: {self.best_loss:.4f}")

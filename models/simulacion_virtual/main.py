@@ -8,7 +8,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from common.logger import setup_logger
-from common.storage import StorageManager
+from common.storage import StorageManager, find_latest_checkpoint
 from models.simulacion_virtual.download.download_data import ensure_simulacion_dataset
 from models.simulacion_virtual.dataset.dataset import build_simulacion_dataloaders
 from models.simulacion_virtual.architecture.network import build_simulacion_model
@@ -28,13 +28,13 @@ def parse_args():
     parser = argparse.ArgumentParser(description="BellAI - Simulacion Virtual (VITON-HD, MT-Dataset)")
     parser.add_argument("--task", type=str, default="probador", choices=["probador", "maquillaje"], help="Sub-tarea a entrenar")
     parser.add_argument("--epochs", type=int, default=10, help="Numero de epocas")
-    parser.add_argument("--save_every", type=int, default=2, help="Frecuencia de checkpoints")
+    parser.add_argument("--save_every", type=int, default=1, help="Frecuencia de checkpoints")
     parser.add_argument("--batch_size", type=int, default=8, help="Tamano de batch")
     parser.add_argument("--learning_rate", type=float, default=0.0002, help="Learning rate")
     parser.add_argument("--download_data", action="store_true", help="Descargar dataset con kagglehub")
     parser.add_argument("--drive_path", type=str, default=DEFAULT_DRIVE_DIR, help="Ruta en Google Drive")
     parser.add_argument("--temp_path", type=str, default=DEFAULT_TEMP_DIR, help="Ruta temporal local")
-    parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar")
+    parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar o 'auto'")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     return parser.parse_args()
 
@@ -60,24 +60,46 @@ def main():
     # 3. Modelo
     model = build_simulacion_model(args.task)
 
-    # 4. Checkpoint
-    if args.resume and os.path.exists(args.resume):
+    # 4. Checkpoint y deteccion automatica
+    start_epoch = 1
+    resume_path = args.resume
+
+    task_drive_dir = os.path.join(args.drive_path, args.task)
+    if resume_path == "auto" or not resume_path:
+        # Search task-specific subfolder or base drive folder
+        found_ckpt, found_epoch = find_latest_checkpoint(task_drive_dir)
+        if not found_ckpt:
+            found_ckpt, found_epoch = find_latest_checkpoint(args.drive_path)
+        if found_ckpt:
+            resume_path = found_ckpt
+            start_epoch = found_epoch + 1
+            logger.info(f"[*] Checkpoint detectado automaticamente en Drive: {found_ckpt}")
+            logger.info(f"[*] Continuando entrenamiento desde la epoca {start_epoch} (completadas: {found_epoch})")
+    elif resume_path and os.path.exists(resume_path):
+        import re
+        match = re.search(r"epoch_(\d+)", resume_path)
+        if match:
+            start_epoch = int(match.group(1)) + 1
+            logger.info(f"[*] Checkpoint especificado: {resume_path} -> Continuando desde la epoca {start_epoch}")
+
+    if resume_path and os.path.exists(resume_path):
         try:
             device = torch.device(args.device)
-            state = torch.load(args.resume, map_location=device)
+            state = torch.load(resume_path, map_location=device)
             weights = state.get("model_state", state)
             model.load_state_dict(weights)
-            logger.info(f"Pesos restaurados desde checkpoint: {args.resume}")
+            logger.info(f"Pesos restaurados desde checkpoint: {resume_path}")
         except Exception as e:
             logger.warning(f"Error al cargar checkpoint: {e}")
 
     # 5. Configuracion del entrenador
     config = {
         "epochs": args.epochs,
+        "start_epoch": start_epoch,
         "learning_rate": args.learning_rate,
         "save_every": args.save_every,
-        "output_dir": os.path.join(args.drive_path, "checkpoints"),
-        "drive_backup_dir": args.drive_path,
+        "output_dir": os.path.join(task_drive_dir, "checkpoints"),
+        "drive_backup_dir": task_drive_dir,
         "device": args.device
     }
 

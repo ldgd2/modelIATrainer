@@ -34,10 +34,11 @@ class SimulacionTrainer:
         self.config = config
 
         self.epochs = int(config.get("epochs", 10))
+        self.start_epoch = int(config.get("start_epoch", 1))
         self.lr = float(config.get("learning_rate", 0.0002))
         self.output_dir = config.get("output_dir", f"checkpoints/{task}")
         self.drive_dir = config.get("drive_backup_dir", None)
-        self.save_every = int(config.get("save_every", 2))
+        self.save_every = int(config.get("save_every", 1))
 
         device_str = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device(device_str)
@@ -84,10 +85,14 @@ class SimulacionTrainer:
         return total_loss / max(total, 1)
 
     def fit(self):
-        logger.info(f"[TRAIN] Iniciando entrenamiento para '{self.task}' por {self.epochs} epocas en {self.device}...")
+        if self.start_epoch > self.epochs:
+            logger.info(f"[*] El entrenamiento ya alcanzo la epoca {self.start_epoch - 1} de {self.epochs}. Nada pendiente.")
+            return
+
+        logger.info(f"[TRAIN] Iniciando entrenamiento para '{self.task}' desde epoca {self.start_epoch} hasta {self.epochs} en {self.device}...")
         os.makedirs(self.output_dir, exist_ok=True)
 
-        for epoch in range(1, self.epochs + 1):
+        for epoch in range(self.start_epoch, self.epochs + 1):
             train_loss = self.train_epoch(epoch)
             val_loss = self.validate()
             self.scheduler.step()
@@ -98,16 +103,18 @@ class SimulacionTrainer:
             if is_best:
                 self.best_loss = val_loss
 
-            if epoch % self.save_every == 0 or is_best:
-                checkpoint_state = {
-                    "epoch": epoch,
-                    "task": self.task,
-                    "model_state": self.model.state_dict(),
-                    "optimizer_state": self.optimizer.state_dict(),
-                    "val_loss": val_loss,
-                    "config": self.config
-                }
-                ckpt_filename = f"{self.task}_epoch_{epoch}.pt"
-                save_checkpoint(checkpoint_state, os.path.join(self.output_dir, ckpt_filename), self.drive_dir, is_best=is_best)
+            checkpoint_state = {
+                "epoch": epoch,
+                "task": self.task,
+                "model_state": self.model.state_dict(),
+                "optimizer_state": self.optimizer.state_dict(),
+                "val_loss": val_loss,
+                "config": self.config
+            }
+            ckpt_filename = f"epoch_{epoch:02d}.pt"
+            save_checkpoint(checkpoint_state, os.path.join(self.output_dir, ckpt_filename), self.drive_dir, is_best=is_best)
+
+            latest_filename = f"latest_model.pt"
+            save_checkpoint(checkpoint_state, os.path.join(self.output_dir, latest_filename), self.drive_dir, is_best=False)
 
         logger.info(f"[DONE] Entrenamiento finalizado para '{self.task}'. Mejor Val Loss: {self.best_loss:.4f}")

@@ -69,3 +69,49 @@ def save_checkpoint(
             best_dest = os.path.join(drive_dir, "best_model.pt")
             shutil.copy2(local_path, best_dest)
             logger.info(f"Best model synced to Google Drive: {best_dest}")
+
+def find_latest_checkpoint(drive_module_dir: str):
+    """
+    Busca automaticamente el checkpoint mas reciente en Google Drive o local.
+    Retorna (ruta_archivo, ultima_epoca_completada) o (None, 0).
+    """
+    search_dirs = [
+        os.path.join(drive_module_dir, "checkpoints"),
+        drive_module_dir
+    ]
+    candidates = []
+    for d in search_dirs:
+        if os.path.exists(d):
+            for f in os.listdir(d):
+                if f.endswith(".pt") and ("epoch" in f.lower() or "latest" in f.lower() or "model" in f.lower()):
+                    candidates.append(os.path.join(d, f))
+
+    if not candidates:
+        return None, 0
+
+    import re
+    best_file = None
+    max_epoch = 0
+
+    for path in candidates:
+        match = re.search(r"epoch_?(\d+)", os.path.basename(path), re.IGNORECASE)
+        if match:
+            ep = int(match.group(1))
+            if ep > max_epoch:
+                max_epoch = ep
+                best_file = path
+
+    if not best_file:
+        candidates.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        best_file = candidates[0]
+
+    if best_file:
+        try:
+            state = torch.load(best_file, map_location="cpu")
+            if isinstance(state, dict) and "epoch" in state:
+                max_epoch = max(max_epoch, int(state["epoch"]))
+        except Exception:
+            pass
+
+    return best_file, max_epoch
+
