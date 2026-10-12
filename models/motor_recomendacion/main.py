@@ -33,6 +33,8 @@ def parse_args():
     parser.add_argument("--drive_path", type=str, default=DEFAULT_DRIVE_DIR, help="Ruta en Google Drive")
     parser.add_argument("--temp_path", type=str, default=DEFAULT_TEMP_DIR, help="Ruta temporal local")
     parser.add_argument("--link_polyvore", type=str, default=DEFAULT_POLYVORE_URL, help="URL de Re-PolyVore.zip")
+    parser.add_argument("--download_data", action="store_true", help="Descargar PolyVore via kagglehub")
+    parser.add_argument("--kaggle_slug", type=str, default="nastarang/re-polyvore", help="Slug de Kaggle para PolyVore")
     parser.add_argument("--backbone", type=str, default="mobilenet_v3_large", help="Arquitectura backbone")
     parser.add_argument("--resume", type=str, default="", help="Ruta al checkpoint a restaurar o 'auto'")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
@@ -46,7 +48,7 @@ def main():
     storage.setup_directories()
 
     # 1. Descarga o extraccion de datos
-    data_dir = descargar_y_extraer_polyvore(args.link_polyvore, args.temp_path)
+    data_dir = descargar_y_extraer_polyvore(args.link_polyvore, args.temp_path, kaggle_slug=args.kaggle_slug)
 
     # 2. Carga de DataLoaders
     train_loader, val_loader = build_recommender_dataloaders(

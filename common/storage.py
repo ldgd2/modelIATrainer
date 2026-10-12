@@ -116,19 +116,31 @@ def save_checkpoint(
     """Helper de compatibilidad para sincronizacion de checkpoints."""
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
     torch.save(state_dict, local_path)
-    logger.info(f"Checkpoint saved locally at: {local_path}")
+    logger.info(f"Checkpoint saved at: {local_path}")
 
+    # Evitar bloqueos de I/O en Google Drive FUSE si el archivo ya esta en Drive
     if drive_dir and os.path.exists(drive_dir):
-        os.makedirs(drive_dir, exist_ok=True)
-        filename = os.path.basename(local_path)
-        dest_path = os.path.join(drive_dir, filename)
-        shutil.copy2(local_path, dest_path)
-        logger.info(f"Checkpoint synced to Google Drive: {dest_path}")
+        abs_local = os.path.abspath(local_path)
+        abs_drive = os.path.abspath(drive_dir)
+
+        # Solo sincronizar si el archivo origen se guardo en un disco temporal fuera de Drive
+        if not abs_local.startswith(abs_drive):
+            filename = os.path.basename(local_path)
+            dest_path = os.path.join(drive_dir, "checkpoints", filename)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            try:
+                shutil.copy2(local_path, dest_path)
+                logger.info(f"Checkpoint synced to Google Drive: {dest_path}")
+            except Exception as e:
+                logger.warning(f"Aviso al sincronizar checkpoint a Drive: {e}")
 
         if is_best:
-            best_dest = os.path.join(drive_dir, "best_model.pt")
-            shutil.copy2(local_path, best_dest)
-            logger.info(f"Best model synced to Google Drive: {best_dest}")
+            best_dest = os.path.join(abs_drive, "best_model.pt")
+            try:
+                shutil.copy2(local_path, best_dest)
+                logger.info(f"Best model synced: {best_dest}")
+            except Exception:
+                pass
 
 def find_latest_checkpoint(drive_module_dir: str):
     """
